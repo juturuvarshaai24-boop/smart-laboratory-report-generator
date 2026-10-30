@@ -134,3 +134,15 @@ reports/hydraulic/runs/
 # Local DVC cache and filesystem storage
 .dvc/cache/
 dvc-storage/
+
+# W&B local run data
+wandb/
+
+# Local backup files
+*.save
+
+# W&B local run data
+wandb/
+
+# Local backup files
+*.save
