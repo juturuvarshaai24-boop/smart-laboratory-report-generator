@@ -4,7 +4,7 @@ import unittest
 
 from fastapi.testclient import TestClient
 
-from src.hydraulic.api import app, FEATURE_NAMES
+from src.hydraulic.api import FEATURE_NAMES, app
 from src.hydraulic.data import load_hydraulic_dataset
 
 

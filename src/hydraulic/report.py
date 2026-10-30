@@ -14,7 +14,7 @@ import pandas as pd
 
 from model.config import ModelConfig
 from model.generator import LabReportGenerator
-from model.inference import ModelBackend, MockModelBackend
+from model.inference import MockModelBackend, ModelBackend
 from model.schemas import ExperimentInput, LabReport, Measurement, SectionName
 from model.validator import validate_report
 
@@ -146,12 +146,12 @@ class HydraulicReportBackend(ModelBackend):
             cycle_id = experiment.metadata["cycle_id"]
             lines = [
                 f"Cycle identifier: {cycle_id} (1-based source row index; no timestamp).",
-                f"Model: {experiment.metadata['model_name']} "
-                f"({experiment.metadata['model_version']}).",
-                "Validation method: "
-                f"{str(experiment.metadata['validation_method']).rstrip('.')}.",
-                "Positive class definition: label 1 = pump leakage present "
-                "(original pump grade 1 or 2); label 0 = original grade 0.",
+                (f"Model: {experiment.metadata['model_name']} "
+                 f"({experiment.metadata['model_version']})."),
+                ("Validation method: "
+                 f"{str(experiment.metadata['validation_method']).rstrip('.')}."),
+                ("Positive class definition: label 1 = pump leakage present "
+                 "(original pump grade 1 or 2); label 0 = original grade 0."),
                 "Derived sensor features (each retains its source channel unit):",
             ]
             lines.extend(

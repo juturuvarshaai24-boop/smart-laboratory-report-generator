@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import shutil
 import sys
 import tempfile
@@ -15,7 +14,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.hydraulic.data import (  # noqa: E402
+from src.hydraulic.data import (
     ARCHIVE_SHA256,
     DATASET_DOI,
     DATASET_URL,

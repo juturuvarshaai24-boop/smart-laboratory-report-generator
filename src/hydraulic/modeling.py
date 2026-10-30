@@ -84,7 +84,7 @@ def calculate_binary_metrics(
     if probabilities is not None and np.unique(truth).size == 2:
         roc_auc = float(roc_auc_score(truth, probabilities))
     return {
-        "cycle_count": int(len(truth)),
+        "cycle_count": len(truth),
         "class_counts": {
             "0": int(np.sum(truth == 0)),
             "1": int(np.sum(truth == 1)),

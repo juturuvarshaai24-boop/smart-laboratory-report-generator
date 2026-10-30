@@ -31,8 +31,8 @@ from .modeling import (
     DEFAULT_RANDOM_STATE,
     build_candidate_models,
     calculate_binary_metrics,
-    select_probability_threshold,
     select_candidate,
+    select_probability_threshold,
 )
 from .splitting import (
     DEFAULT_EMBARGO_CYCLES,
@@ -147,7 +147,7 @@ def train_pipeline(
             int(dataset.cycle_ids[splits.test[0]]),
             int(dataset.cycle_ids[splits.test[-1]]),
         ],
-        "purged_cycle_count": int(len(splits.purged)),
+        "purged_cycle_count": len(splits.purged),
         "class_counts": class_counts,
         "original_pump_grade_counts": grade_counts,
         "limitations": [

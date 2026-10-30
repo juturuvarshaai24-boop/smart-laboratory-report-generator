@@ -451,7 +451,7 @@ def compare_models(
                 int(dataset.cycle_ids[indices[0]]),
                 int(dataset.cycle_ids[indices[-1]]),
             ],
-            "sample_count": int(len(indices)),
+            "sample_count": len(indices),
             "binary_class_counts": {
                 "0": int((split_labels == 0).sum()),
                 "1": int((split_labels == 1).sum()),

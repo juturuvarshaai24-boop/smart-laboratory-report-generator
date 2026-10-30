@@ -13,7 +13,8 @@ from pathlib import Path
 from typing import Any
 
 import wandb
-
+from src.hydraulic.artifacts import validate_run_id
+from src.hydraulic.data import ARCHIVE_SHA256
 from src.hydraulic.mlflow_tracking import (
     DATASET_DOI,
     DATASET_NAME,
@@ -22,8 +23,6 @@ from src.hydraulic.mlflow_tracking import (
     EXPERIMENT_NAME,
     TASK_TAG,
 )
-from src.hydraulic.data import ARCHIVE_SHA256
-from src.hydraulic.artifacts import validate_run_id
 
 
 def log_comparison_to_wandb(
@@ -83,10 +82,9 @@ def log_comparison_to_wandb(
     ):
         raise ValueError("Dataset provenance validation failed")
 
-    if not os.environ.get("WANDB_API_KEY"):
+    if not os.environ.get("WANDB_API_KEY") and not wandb.api.api_key:
         # W&B may already be authenticated through `wandb login`.
-        if not wandb.api.api_key:
-            raise RuntimeError(
+        raise RuntimeError(
                 "W&B is not authenticated. Run `wandb login` in your terminal."
             )
 

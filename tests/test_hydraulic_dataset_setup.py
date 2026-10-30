@@ -8,8 +8,8 @@ import unittest
 import zipfile
 from pathlib import Path
 
-from src.hydraulic.data import DatasetIntegrityError, load_hydraulic_dataset
 from scripts.setup_hydraulic_dataset import validate_archive
+from src.hydraulic.data import DatasetIntegrityError, load_hydraulic_dataset
 
 
 class HydraulicDatasetSetupTests(unittest.TestCase):
