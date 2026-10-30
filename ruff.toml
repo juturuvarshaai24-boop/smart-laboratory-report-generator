@@ -5,3 +5,6 @@ ignore = ["RUF022", "UP037", "UP045"]
 [lint.per-file-ignores]
 # Keep the existing test file unchanged.
 "model/tests/test_sklearn_backend.py" = ["I001"]
+
+[lint.isort]
+known-first-party = ["src"]
