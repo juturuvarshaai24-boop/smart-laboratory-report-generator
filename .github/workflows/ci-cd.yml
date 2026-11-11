@@ -29,6 +29,9 @@ jobs:
           pip install -r requirements-api.txt
           pip install ruff
 
+      - name: Download and verify hydraulic dataset
+        run: python scripts/setup_hydraulic_dataset.py
+
       - name: Run Ruff
         run: ruff check model src scripts tests
 
@@ -100,4 +103,3 @@ jobs:
           echo "Render health check failed"
           exit 1
 
-          
