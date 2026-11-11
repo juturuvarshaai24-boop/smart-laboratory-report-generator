@@ -350,7 +350,7 @@ def _log_candidate(
                     )
                     mlflow.log_artifact(
                         str(model_dir / f"{family}.joblib"),
-                        artifact_path="model",
+                        artifact_path="joblib",
                     )
             return run.info.run_id
 
@@ -523,7 +523,7 @@ def _log_candidate(
             # Retain the original audited .joblib artifact and its path.
             mlflow.log_artifact(
                 str(model_path),
-                artifact_path="model",
+                artifact_path="joblib",
             )
 
             mlflow.log_artifact(
@@ -664,19 +664,23 @@ def register_selected_model(
             "Model SHA-256 does not match the logged MLflow run"
         )
 
-    expected_artifact = f"model/{selected}.joblib"
-    artifacts = client.list_artifacts(run.info.run_id, "model")
+    model_artifacts = client.list_artifacts(run.info.run_id, "model")
+    joblib_artifacts = client.list_artifacts(run.info.run_id, "joblib")
 
-    artifact_paths = {artifact.path for artifact in artifacts}
-    if expected_artifact not in artifact_paths:
-        raise RuntimeError(
-            "Selected model artifact is missing from MLflow"
-        )
-    if "model/MLmodel" not in artifact_paths:
-        raise RuntimeError(
-            "Selected run has no MLflow MLmodel descriptor. "
-            "Re-run comparison logging to repair the model artifact."
-        )
+    available_paths = {
+        item.path for item in [*model_artifacts, *joblib_artifacts]
+    }
+
+    expected_paths = {
+        f"model/{selected}.joblib",
+        f"joblib/{selected}.joblib",
+    }
+
+    if not (available_paths & expected_paths):
+        raise RuntimeError("Selected Joblib model artifact is missing from MLflow")
+
+    if "model/MLmodel" not in available_paths:
+        raise RuntimeError("Selected run has no MLflow MLmodel descriptor.")
 
     registered_models = client.search_registered_models()
 
@@ -749,6 +753,52 @@ def register_selected_model(
         "status": version.status,
         "run_id": run.info.run_id,
     }
+
+
+
+def load_registered_model(
+    project_root: Path,
+    version: str,
+    *,
+    model_name: str = REGISTERED_MODEL_NAME,
+    tracking_uri: str | None = None,
+) -> Any:
+    """Load a registered MLflow model, including nested artifact layouts."""
+    uri = resolve_tracking_uri(project_root, tracking_uri)
+    mlflow.set_tracking_uri(uri)
+
+    client = MlflowClient(tracking_uri=uri)
+    registered_version = client.get_model_version(model_name, str(version))
+
+    if registered_version.status != "READY":
+        raise RuntimeError(
+            f"Registered model {model_name!r} version {version} "
+            f"is not READY: {registered_version.status}"
+        )
+
+    model_uri = f"models:/{model_name}/{version}"
+    downloaded_path = Path(
+        mlflow.artifacts.download_artifacts(model_uri)
+    )
+
+    candidates = [
+        downloaded_path,
+        downloaded_path / "model",
+    ]
+
+    model_path = next(
+        (candidate for candidate in candidates
+         if (candidate / "MLmodel").is_file()),
+        None,
+    )
+
+    if model_path is None:
+        raise FileNotFoundError(
+            f"No MLmodel descriptor found in downloaded registry artifact: "
+            f"{downloaded_path}"
+        )
+
+    return mlflow.pyfunc.load_model(str(model_path))
 
 
 def main() -> None:
