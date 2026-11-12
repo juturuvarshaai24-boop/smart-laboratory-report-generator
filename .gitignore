@@ -51,8 +51,7 @@ dmypy.json
 # ---------------------------------------------------------------------------
 # Virtual environments
 # ---------------------------------------------------------------------------
-.env
-.venv
+.venv*/
 env/
 venv/
 ENV/
@@ -69,6 +68,7 @@ venv.bak/
 *.local
 secrets.*
 credentials.*
+.netrc
 *.pem
 *.key
 *.crt
@@ -102,9 +102,6 @@ settings.local.json
 Thumbs.db
 desktop.ini
 
-.venv/
-venv/
-env/
 mlflow.db
 *.db
 *.db-*
@@ -113,7 +110,6 @@ mlflow.db
 *.sqlite-*
 mlruns/
 mlartifacts/
-__pycache__/
 .ipynb_checkpoints/
 
 mlflow.db.bak
@@ -134,12 +130,6 @@ reports/hydraulic/runs/
 # Local DVC cache and filesystem storage
 .dvc/cache/
 dvc-storage/
-
-# W&B local run data
-wandb/
-
-# Local backup files
-*.save
 
 # W&B local run data
 wandb/

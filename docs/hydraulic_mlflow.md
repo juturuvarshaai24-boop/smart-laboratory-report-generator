@@ -95,14 +95,14 @@ Set `MLFLOW_TRACKING_URI` to another supported MLflow URI to use a different
 tracking backend. Unit tests create isolated temporary SQLite stores and do
 not access the project database.
 
-directory were backed up outside the repository:
-the archived paths for the 14 scoped run IDs and the experiment's
-logged-model artifact directory (68 files total) and passed ZIP CRC
-validation.
-stages, and local model/report outputs remain available. Those scripts no
-longer write Wine runs to MLflow. `dvc.yaml`, `.dvc/config`, and DVC-tracked
-data were not changed by the tracking migration.
-directory, preserving the archive's `1\...` paths:
+The historical Wine tracking data was backed up outside the repository before
+its removal from the active store. The archive covered 14 scoped run IDs and
+the experiment's logged-model artifact directory (68 files total) and passed
+ZIP CRC validation. The legacy Wine DVC stages and local model/report outputs
+remain available, but those scripts no longer write Wine runs to MLflow.
+`dvc.yaml`, `.dvc/config`, and DVC-tracked data were not changed by the
+tracking migration.
+
 ## Historical tracking data
 
 Local tracking history is deliberately not distributed with the source

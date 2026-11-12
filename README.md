@@ -15,6 +15,10 @@ This README distinguishes the verified Phase 1 MLOps implementation from
 future AI/report-generation work. Course-specific approval of the selected
 dataset is not asserted here.
 
+The active deployed inference service detects hydraulic pump leakage from
+cycle-level sensor features. It is implemented separately from the retained
+laboratory report foundation and legacy Wine Quality workflow described below.
+
 ## Problem Statement
 
 Laboratory experiment records are often captured as free-form, inconsistent
@@ -123,6 +127,113 @@ short `python` and `mlflow` commands. The deterministic mock report backend
 works offline without an API key or paid service; hydraulic reports use the
 saved sklearn pipeline.
 
+## CI/CD and Container Releases
+
+The GitHub Actions workflow at
+[.github/workflows/ci.yml](.github/workflows/ci.yml) runs tests, lint, source
+compilation, API checks, and a Docker build on pushes and pull requests. A
+version tag (`v*`) additionally publishes the tested API image to GitHub
+Container Registry (GHCR), but only after every CI job succeeds. Each release
+is tagged with the Git version and `latest`.
+
+To publish a release, push a version tag from a commit that has passed CI:
+
+```powershell
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+The image will be available as
+`ghcr.io/juturuvarshaai24-boop/smart-laboratory-report-generator:v1.0.0`
+and `:latest`. Pull and run it with:
+
+```powershell
+docker pull ghcr.io/juturuvarshaai24-boop/smart-laboratory-report-generator:v1.0.0
+docker run --rm -p 8000:8000 ghcr.io/juturuvarshaai24-boop/smart-laboratory-report-generator:v1.0.0
+```
+
+Then check `http://localhost:8000/health` and `http://localhost:8000/docs`.
+The workflow uses the repository's `GITHUB_TOKEN` with package-write permission;
+no long-lived registry credential is required. GHCR may keep newly published
+packages private by default, so configure package visibility in GitHub if the
+image should be publicly pullable. This pipeline publishes an image; deploying
+it to a running host is a separate, platform-specific step.
+
+## Hydraulic Leakage API: Docker and Render
+
+The hydraulic API is a FastAPI application in `src/hydraulic/api.py`. It loads
+the saved Random Forest comparison artifact
+`models/hydraulic/comparisons/hydraulic-compare-20261021-2104d/random_forest.joblib`;
+it does not train a model or query MLflow/W&B at request time. The request
+contains 112 engineered features: eight summaries for each of 14 physical
+sensor channels. The positive class (`1`) means pump leakage present (original
+pump grades 1 or 2); class `0` means no pump leakage. The reported probability
+is an uncalibrated model score, not calibrated confidence. The API expects the
+cycle summaries to be pre-engineered; it does not accept raw sensor matrices
+or calculate summaries from raw traces.
+
+### API endpoints
+
+| Method and path | Purpose |
+|---|---|
+| `GET /health` | Confirms the model is loaded; returns HTTP 503 if it is unavailable. |
+| `GET /model-info` | Returns the model family, feature count, decision threshold, and class meanings. |
+| `POST /predict` | Predicts leakage from a JSON body containing all 112 named numeric features. |
+| `GET /docs` | Opens the interactive OpenAPI/Swagger documentation. |
+
+`/predict` returns `prediction`, `result`, `leakage_probability`, and
+`decision_threshold`. Missing or unexpected features and non-finite values are
+rejected with HTTP 422. The deployed model currently uses a decision threshold
+of `0.13628977735799333`; `/model-info` returns the active value.
+
+### Run the API with Docker
+
+From the repository root, build and run the API image. The Dockerfile installs
+the API-only requirements, copies the saved Random Forest artifact into the
+image, runs as a non-root user, and defines a `/health` container health check.
+
+```powershell
+docker build -t hydraulic-leakage-api .
+docker run --rm -p 8000:8000 hydraulic-leakage-api
+```
+
+In another PowerShell window, check the local endpoints and try both saved
+prediction request examples. Each request file contains the required
+`{"features": {...}}` body with 112 features.
+
+```powershell
+$BaseUrl = "http://localhost:8000"
+Invoke-RestMethod -Uri "$BaseUrl/health"
+Invoke-RestMethod -Uri "$BaseUrl/model-info"
+Invoke-RestMethod -Uri "$BaseUrl/predict" -Method Post `
+  -ContentType "application/json" -InFile ".\hydraulic_test_request.json"
+Invoke-RestMethod -Uri "$BaseUrl/predict" -Method Post `
+  -ContentType "application/json" -InFile ".\hydraulic_positive_test_request.json"
+```
+
+### Test the deployed Render service
+
+The deployed service is available at
+[https://smart-laboratory-report-generator.onrender.com](https://smart-laboratory-report-generator.onrender.com);
+interactive API documentation is at
+[https://smart-laboratory-report-generator.onrender.com/docs](https://smart-laboratory-report-generator.onrender.com/docs).
+Use the same checks and request examples against Render by changing the base
+URL:
+
+```powershell
+$BaseUrl = "https://smart-laboratory-report-generator.onrender.com"
+Invoke-RestMethod -Uri "$BaseUrl/health"
+Invoke-RestMethod -Uri "$BaseUrl/model-info"
+Invoke-RestMethod -Uri "$BaseUrl/predict" -Method Post `
+  -ContentType "application/json" -InFile ".\hydraulic_test_request.json"
+Invoke-RestMethod -Uri "$BaseUrl/predict" -Method Post `
+  -ContentType "application/json" -InFile ".\hydraulic_positive_test_request.json"
+```
+
+The repository does not contain a `render.yaml`; Render service configuration
+is managed outside this repository. Do not infer the Render build or start
+settings from the Docker/GHCR workflow.
+
 ## Legacy Wine Quality Workflow
 
 The original Phase 1 baseline used the red-wine subset of the Wine Quality
@@ -145,7 +256,7 @@ src/                            DVC prepare, feature, train, and evaluate script
 models/                         selected sklearn model and run metadata
 metrics/                        final evaluation metrics
 scripts/demo_report.py          validated sklearn report example
-.github/workflows/ci.yml         test, lint, and source-compilation jobs
+.github/workflows/ci.yml         CI checks and GHCR release publishing
 params.yaml                    legacy Wine data, split, and model parameters
 requirements.txt               pinned Phase 1 dependencies
 model/                         existing deterministic report-generator package
@@ -319,6 +430,31 @@ results separately from the locked chronological test results. See the
 [hydraulic MLflow guide](docs/hydraulic_mlflow.md) for URI configuration,
 comparison logging, run inspection, and local database setup.
 
+The tracked comparison selected the Random Forest candidate. The verified
+MLflow Registry entry is `hydraulic-pump-leakage-classifier`, version 1, in
+`READY` status. This registry record documents the selected model; the
+deployed API currently loads the saved `.joblib` artifact directly rather than
+loading a model from the registry.
+
+### Weights & Biases comparison tracking
+
+The optional tracker in `src/hydraulic/wandb_tracking.py` logs metrics and
+comparison metadata from saved results; it does not train models. The
+W&B workspace has four logged model-comparison runs, one for each candidate
+family: majority Dummy, Logistic Regression, Random Forest, and
+HistGradientBoosting. The default W&B project is
+`hydraulic-condition-monitoring`; runs share the comparison ID as their group
+and include dataset provenance, model configuration, and split-specific
+metrics. MLflow remains the primary tracker and maintains the model registry.
+
+The W&B SDK is optional and is not included in `requirements.txt`. For future
+logging, install it in the development environment and authenticate with
+`wandb login` or the `WANDB_API_KEY` environment variable. Never put an API
+key in source code, request fixtures, or committed configuration. The W&B
+tracking function is separate from the comparison CLI, and calling it again
+for the already logged comparison creates another set of runs; do not repeat
+it unless duplicate/retry runs are intended.
+
 ### Quick start (current foundation)
 
 ```python
@@ -450,7 +586,7 @@ Smart-Laboratory-Report-Generator/
 ├── metrics/                 # legacy and hydraulic evaluation metrics
 ├── reports/figures/         # EDA and evaluation plots
 ├── scripts/                 # Runnable demos
-├── .github/workflows/       # CI jobs
+├── .github/workflows/       # CI checks and GHCR release publishing
 ├── params.yaml
 ├── dvc.yaml
 ├── dvc.lock
@@ -485,6 +621,24 @@ Reproducibility is a core objective and is being established incrementally:
   Wine experiment records were removed from the active store after backup.
 - **Environment isolation** — Phase 1 dependencies are pinned in
   `requirements.txt`; the default report backend remains dependency-free.
+
+## Submission Checklist
+
+- [ ] **GitHub:** Review `git status`, include the intended README, ignore-file,
+  model/report deliverables, and prediction request examples, and confirm the
+  CI workflow passes after publishing the intended changes.
+- [ ] **Render:** Confirm `/health`, `/model-info`, `/predict` for both saved
+  examples, and `/docs` are reachable at the deployed URL.
+- [ ] **MLflow:** Confirm the `hydraulic-condition-monitoring` experiment and
+  registered `hydraulic-pump-leakage-classifier` version 1 (`READY`) are
+  visible in the tracking/registry UI.
+- [ ] **W&B:** Confirm the four comparison runs are visible in the
+  `hydraulic-condition-monitoring` project and grouped by comparison ID.
+- [ ] **Testing:** Run the documented unit tests and, if submitting the
+  container, rebuild and exercise the Docker API endpoints.
+- [ ] **Screenshots:** Capture the GitHub repository/CI result, Render API
+  checks and docs, MLflow experiment and registry entry, and W&B comparison
+  runs. Keep credentials and environment-variable values out of screenshots.
 
 ## Technology Stack
 
